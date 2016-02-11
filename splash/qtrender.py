@@ -187,6 +187,7 @@ class ImageRender(DefaultRenderScript):
         self.width = kwargs.pop('width')
         self.height = kwargs.pop('height')
         self.scale_method = kwargs.pop('scale_method')
+        self.area = kwargs.pop("area")
         return super(ImageRender, self).start(**kwargs)
 
 
@@ -195,7 +196,8 @@ class PngRender(ImageRender):
     def get_result(self):
         return self.tab.png(self.width, self.height,
                             render_all=self.render_all,
-                            scale_method=self.scale_method)
+                            scale_method=self.scale_method,
+                            area=self.area)
 
 
 class JpegRender(ImageRender):
@@ -207,7 +209,7 @@ class JpegRender(ImageRender):
     def get_result(self):
         return self.tab.jpeg(
             self.width, self.height, render_all=self.render_all,
-            scale_method=self.scale_method, quality=self.quality)
+            scale_method=self.scale_method, quality=self.quality, area=self.area)
 
 
 class JsonRender(JpegRender):

@@ -719,9 +719,10 @@ class BrowserTab(QObject):
         self.store_har_timing("_onHtmlRendered")
         return result
 
-    def _get_image(self, image_format, width, height, render_all, scale_method):
+    def _get_image(self, image_format, width, height, render_all, scale_method, area):
         old_size = self.web_page.viewportSize()
         try:
+            # TODO handle error if render_all and area passed
             if render_all:
                 self.logger.log("Rendering whole page contents (RENDER_ALL)",
                                 min_level=2)
@@ -740,13 +741,13 @@ class BrowserTab(QObject):
         return image
 
     def png(self, width=None, height=None, b64=False, render_all=False,
-            scale_method=None):
+            scale_method=None, area=None):
         """ Return page screenshot in PNG format """
         self.logger.log(
             "Getting PNG: width=%s, height=%s, "
             "render_all=%s, scale_method=%s" %
             (width, height, render_all, scale_method), min_level=2)
-        image = self._get_image('PNG', width, height, render_all, scale_method)
+        image = self._get_image('PNG', width, height, render_all, scale_method, area=area)
         result = image.to_png()
         if b64:
             result = base64.b64encode(result).decode('utf-8')
@@ -754,13 +755,13 @@ class BrowserTab(QObject):
         return result
 
     def jpeg(self, width=None, height=None, b64=False, render_all=False,
-             scale_method=None, quality=None):
+             scale_method=None, quality=None, area=None):
         """Return page screenshot in JPEG format."""
         self.logger.log(
             "Getting JPEG: width=%s, height=%s, "
             "render_all=%s, scale_method=%s, quality=%s" %
             (width, height, render_all, scale_method, quality), min_level=2)
-        image = self._get_image('JPEG', width, height, render_all, scale_method)
+        image = self._get_image('JPEG', width, height, render_all, scale_method, area=area)
         result = image.to_jpeg(quality=quality)
         if b64:
             result = base64.b64encode(result).decode('utf-8')

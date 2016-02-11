@@ -275,6 +275,9 @@ class RenderOptions(object):
             content_types = list(filter(None, content_types.split(',')))
         return content_types
 
+    def get_area(self):
+        return self.get("area", None)
+
     def get_common_params(self, js_profiles_path):
         wait = self.get_wait()
         return {
@@ -298,7 +301,8 @@ class RenderOptions(object):
         return {
             'width': self.get_width(),
             'height': self.get_height(),
-            'scale_method': self.get_scale_method()
+            'scale_method': self.get_scale_method(),
+            "area": self.get_area()
         }
 
     def get_png_params(self):
