@@ -20,7 +20,7 @@ class QtImageRenderer(object):
     QPAINTER_MAXSIZE = 32766
 
     def __init__(self, web_page, logger=None, image_format=None,
-                 width=None, height=None, scale_method=None):
+                 width=None, height=None, scale_method=None, page_element=None):
         """Initialize renderer.
 
         :type web_page: PyQt5.QtWebKit.QWebPage
@@ -31,6 +31,7 @@ class QtImageRenderer(object):
         :type scale_method: str {'raster', 'vector'}
 
         """
+        self.elem = page_element if page_element else web_page.mainFrame()
         self.web_page = web_page
         if logger is None:
             logger = _DummyLogger()
@@ -98,6 +99,7 @@ class QtImageRenderer(object):
         # 2. render_qwebpage_raster/-vector
         # 3. render_qwebpage_impl
         # 4. render_qwebpage_full/-tiled
+        # TODO adjust size if we're taking screenshot of element and not whole web page
         web_viewport = QRect(QPoint(0, 0), self.web_page.viewportSize())
         img_viewport, img_size = self._calculate_image_parameters(
             web_viewport, self.width, self.height)
@@ -222,7 +224,7 @@ class QtImageRenderer(object):
             painter.setWindow(web_rect)
             painter.setViewport(render_rect)
             painter.setClipRect(web_rect)
-            self.web_page.mainFrame().render(painter)
+            self.elem.render(painter)
         finally:
             painter.end()
         return WrappedQImage(canvas)
@@ -283,7 +285,7 @@ class QtImageRenderer(object):
                                floor(top / ratio)),
                         QPoint(ceil((left + tile_qimage.width()) / ratio),
                                ceil((top + tile_qimage.height()) / ratio)))
-                    self.web_page.mainFrame().render(painter, QRegion(clip_rect))
+                    self.elem.render(painter, QRegion(clip_rect))
                     tile_image = self.qimage_to_pil_image(tile_qimage)
 
                     # If this is the bottommost tile, its bottom may have stuff
