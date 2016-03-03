@@ -322,7 +322,16 @@ def _set_global_render_settings(js_disable_cross_domain_access, private_mode):
     settings.setAttribute(QWebSettings.LocalStorageEnabled, not private_mode)
 
 
+def excepthook(etype, evalue, tb):
+    from twisted.python import log
+    tb = "".join(traceback.format_exception(etype, evalue, tb))
+    msg = "\n\nUnhandled QT failure \n{}".format(tb)
+    log.msg(msg)
+    sys.__excepthook__(etype, evalue, tb)
+
 def main(jupyter=False, argv=sys.argv, server_factory=splash_server):
+
+    sys.excepthook = excepthook
     opts, _ = parse_opts(jupyter, argv)
     if opts.version:
         print(__version__)

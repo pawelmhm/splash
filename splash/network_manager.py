@@ -107,8 +107,12 @@ class ProxiedQNetworkAccessManager(QNetworkAccessManager):
 
     def createRequest(self, operation, request, outgoingData=None):
         """
-        This method is called when a new request is sent;
-        it must return a reply object to work with.
+        :param operation: HTTP method
+        :param request: QNetworkRequest
+        :param outgoingData: QIODevice data to send, important for POST
+        :return: QNetworkReply.
+
+        ** QNetworkReply MUST be returned or Splash will crash, there can be no exception here **
         """
         start_time = datetime.utcnow()
 
@@ -376,10 +380,23 @@ class SplashQNetworkAccessManager(ProxiedQNetworkAccessManager):
                 middleware.process(reply, render_options)
 
     def createRequest(self, operation, request, outgoingData=None):
+        """
+        :param operation: HTTP method
+        :param request: QNetworkRequest
+        :param outgoingData: QIODevice data to send, important for POST
+        :return: QNetworkReply. ** This MUST be returned or Splash will crash **
+        """
         render_options = self._get_render_options(request)
+
         if render_options:
             for middleware in self.request_middlewares:
-                request = middleware.process(request, render_options, operation, outgoingData)
+                try:
+                    request = middleware.process(request, render_options, operation, outgoingData)
+                except Exception:
+                    tb = traceback.format_exc()
+                    log.msg(tb)
+
+        # TODO should we somehow ensure that exception in NAT createRequest() doesnt crash Splash?
         reply = super(SplashQNetworkAccessManager, self).createRequest(operation, request, outgoingData)
         if render_options:
             reply.metaDataChanged.connect(self.run_response_middlewares)
