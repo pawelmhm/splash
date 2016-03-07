@@ -28,6 +28,17 @@ from splash import defaults
 from splash.utils import to_bytes
 from splash.cookies import SplashCookieJar
 
+def abort_if_closing(meth):
+    @functools.wraps(meth)
+    def wrapped(self, *args, **kwargs):
+        reply = self.sender()
+        if self._closing:
+            self.log("%s, response aborted {url} network-manager closing" % meth.__name__, reply=reply)
+            reply.abort()
+            return
+        return meth(self, *args, **kwargs)
+    return wrapped
+
 
 class NetworkManagerFactory(object):
     def __init__(self, filters_path=None, verbosity=None, allowed_schemes=None):
@@ -98,6 +109,8 @@ class ProxiedQNetworkAccessManager(QNetworkAccessManager):
 
         self._request_ids = itertools.count()
         assert self.proxyFactory() is None, "Standard QNetworkProxyFactory is not supported"
+        self.tracked_responses = set()
+        self._closing = False
 
     def _on_ssl_errors(self, reply, errors):
         reply.ignoreSslErrors()
@@ -110,6 +123,14 @@ class ProxiedQNetworkAccessManager(QNetworkAccessManager):
         This method is called when a new request is sent;
         it must return a reply object to work with.
         """
+        if self._closing:
+            # createRequest() must return reply, it may be called even when loading is done
+            # and NAT is closing. To avoid needless requests we return reply which will immediately timeout.
+            reply = super(ProxiedQNetworkAccessManager, self).createRequest(operation,
+                                                                            request, outgoingData)
+            self._set_reply_timeout(reply, 0)
+            return reply
+
         start_time = datetime.utcnow()
 
         # Proxies are managed per-request, so we're restoring a default
@@ -153,7 +174,20 @@ class ProxiedQNetworkAccessManager(QNetworkAccessManager):
         # http://doc.qt.io/qt-5/qnetworkreply.html#metaDataChanged
         reply.metaDataChanged.connect(self._on_reply_headers)
         reply.downloadProgress.connect(self._on_reply_download_progress)
+
+        def remove_from_tracked(reply):
+            self.tracked_responses.remove(reply)
+
+        self.tracked_responses.add(reply)
+        reply.destroyed.connect(remove_from_tracked)
         return reply
+
+    def close(self):
+        self._closing = True
+        self.log("closing network access manager...", format_msg=False)
+        for r in self.tracked_responses:
+            self.log("aborting response {url}", reply=r)
+            r.abort()
 
     def _set_reply_timeout(self, reply, timeout_ms):
         request_id = self._get_request_id(reply.request())
@@ -258,12 +292,14 @@ class ProxiedQNetworkAccessManager(QNetworkAccessManager):
         if web_frame:
             return setattr(web_frame.page(), attribute, value)
 
+    @abort_if_closing
     def _on_reply_error(self, error_id):
         if error_id != QNetworkReply.OperationCanceledError:
             error_msg = REQUEST_ERRORS.get(error_id, 'unknown error')
             self.log('Download error %d: %s ({url})' % (error_id, error_msg),
                      self.sender(), min_level=2)
 
+    @abort_if_closing
     def _on_reply_finished(self):
         reply = self.sender()
         request = reply.request()
@@ -280,6 +316,7 @@ class ProxiedQNetworkAccessManager(QNetworkAccessManager):
         self._run_webpage_callbacks(request, "on_response", reply, har_entry)
         self.log("Finished downloading {url}", reply)
 
+    @abort_if_closing
     def _on_reply_headers(self):
         """Signal emitted before reading response body, after getting headers
         """
@@ -294,6 +331,7 @@ class ProxiedQNetworkAccessManager(QNetworkAccessManager):
 
         self.log("Headers received for {url}", reply, min_level=3)
 
+    @abort_if_closing
     def _on_reply_download_progress(self, received, total):
         har = self._get_har()
         if har is not None:

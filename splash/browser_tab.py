@@ -339,6 +339,7 @@ class BrowserTab(QObject):
         """
         self.logger.log("stop_loading", min_level=2)
         self.web_view.pageAction(QWebPage.StopScheduledPageRefresh)
+        self.network_manager.close()
         self.web_view.stop()
 
     def register_callback(self, event, callback):
@@ -436,6 +437,7 @@ class BrowserTab(QObject):
 
         self.logger.log("loadFinished: disconnecting callback %s" % callback_id, min_level=3)
         self._load_finished.disconnect(callback_id)
+
 
         if self.web_page.is_ok(ok):
             callback()
