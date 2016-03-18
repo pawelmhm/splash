@@ -735,6 +735,44 @@ class InvalidContentTypeResource(Resource):
         return u'''проверка'''.encode('cp1251')
 
 
+class RequestsAfterLoad(Resource):
+    def render_GET(self, request):
+        html_body = """
+        <html>
+            <head></head>
+            <body>
+                <h1> hello world</h1>
+                <script>
+                function reqListener () {
+                    console.log(this.responseText);
+                }
+                function sendAjax() {
+                    console.log("foo bar")
+                    var oReq = new XMLHttpRequest();
+                    oReq.addEventListener("load", reqListener);
+                    oReq.open("GET", "requests-after-load/other_resource");
+                    oReq.send();
+                }
+                setTimeout(sendAjax, 30)
+            </script>
+            </body>
+
+        </html>
+        """
+        return html_body.encode("utf8")
+
+    def getChild(self, name, request):
+        if name == b"other_resource":
+            return self.AjaxResponse()
+
+    class AjaxResponse(Resource):
+        def render_GET(self, request):
+            js_script = """
+            <html><head></head><body><script>console.log("alfa omega")</script></body></html>
+            """
+            return js_script.strip().encode("utf8")
+
+
 class InvalidContentTypeResource2(Resource):
 
     @use_chunked_encoding
@@ -837,6 +875,7 @@ class Root(Resource):
         self.putChild(b"meta-redirect1", MetaRedirect1())
         self.putChild(b"meta-redirect-target", MetaRedirectTarget())
         self.putChild(b"http-redirect", HttpRedirectResource())
+        self.putChild(b"requests-after-load", RequestsAfterLoad())
 
         self.putChild(b"", Index(self.children))
 

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+from tempfile import NamedTemporaryFile
+
 import pytest
 from .utils import TestServers, SplashServer
 
@@ -16,6 +18,20 @@ def class_ts(request, test_servers):
     """ Splash server and mockserver """
     request.cls.ts = test_servers
     yield test_servers
+
+
+@pytest.yield_fixture(scope="session")
+def test_servers_with_logfile():
+    logfile = NamedTemporaryFile()
+    with TestServers(logfile=logfile.name) as ts:
+        yield ts
+    logfile.close()
+
+
+@pytest.yield_fixture(scope="class")
+def class_ts_with_logfile(request, test_servers_with_logfile):
+    request.cls.ts = test_servers_with_logfile
+    yield test_servers_with_logfile
 
 
 @pytest.yield_fixture(scope="session")
