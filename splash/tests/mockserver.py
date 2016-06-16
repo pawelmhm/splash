@@ -792,6 +792,23 @@ class InvalidContentTypeResource2(Resource):
         return b"ok"
 
 
+class RedirectAndHashtagsResource(Resource):
+    attempts = 0
+
+    def render_GET(self, request):
+        # redirect to same url on every other request
+        if self.attempts % 2 == 0:
+            request.setResponseCode(302)
+            request.setHeader(b"Location", request.uri)
+            self.attempts += 1
+            return b""
+        else:
+            request.setResponseCode(200)
+            return b"""
+            <html><head></head><body>Hello world</body></html>
+            """
+
+
 class Index(Resource):
     isLeaf = True
 
@@ -887,6 +904,7 @@ class Root(Resource):
         self.putChild(b"meta-redirect1", MetaRedirect1())
         self.putChild(b"meta-redirect-target", MetaRedirectTarget())
         self.putChild(b"http-redirect", HttpRedirectResource())
+        self.putChild(b"redirect-hash", RedirectAndHashtagsResource())
 
         self.putChild(b"", Index(self.children))
 
